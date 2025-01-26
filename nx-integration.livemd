@@ -1,0 +1,166 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Untitled notebook
+
+```elixir
+Mix.install(
+  [
+    :nx,
+    {:emlx, github: "elixir-nx/emlx"},
+    {:kenneth, path: "/Users/hauleth/Workspace/hauleth/kenneth"}
+  ],
+  config: [
+    nx: [default_backend: EMLX.Backend]
+  ]
+)
+```
+
+## Section
+
+```elixir
+key = Nx.Random.key(2137)
+
+{voters, _key} = Nx.Random.normal(key, 0, 0.2, shape: {2, 2}, names: [:voter, :xy])
+|> Nx.vectorize(:voter)
+
+candidates = Nx.tensor(
+  [[0.5, 0.5], [-0.5, 0.5], [-0.5, -0.5], [0.5, -0.5]],
+  names: [:candidate, :xy]
+) |> Nx.vectorize(:candidate)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Nx.Tensor<
+  vectorized[candidate: 4]
+  f32[xy: 2]
+  EMLX.Backend<cpu, 0.3881901917.2543190017.179074>
+  [
+    [0.5, 0.5],
+    [-0.5, 0.5],
+    [-0.5, -0.5],
+    [0.5, -0.5]
+  ]
+>
+```
+
+```elixir
+defmodule Voters do
+  import Nx.Defn
+
+  @doc "Euclidean distance between `a` and `b`"
+  defn dist(a, b, opts \\ []), do: Nx.sqrt(Nx.sum((a - b)**2, opts))
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, Voters, <<70, 79, 82, 49, 0, 0, 11, ...>>, true}
+```
+
+```elixir
+demo = Nx.tensor([[0.0, 0.0], [1.0, 1.0]], names: [:voter, :xy])
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Nx.Tensor<
+  f32[voter: 2][xy: 2]
+  EMLX.Backend<cpu, 0.3881901917.2543190017.136144>
+  [
+    [0.0, 0.0],
+    [1.0, 1.0]
+  ]
+>
+```
+
+```elixir
+dists = Voters.dist(voters, candidates, axes: [0])
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Nx.Tensor<
+  vectorized[voter: 2][candidate: 4]
+  f32
+  EMLX.Backend<cpu, 0.3881901917.2543190017.179111>
+  [
+    [0.943080723285675, 0.8635784387588501, 0.4958480894565582, 0.6240983605384827],
+    [0.9802231788635254, 0.6120692491531372, 0.4717492163181305, 0.8993085622787476]
+  ]
+>
+```
+
+```elixir
+voters_count = dists.vectorized_axes[:voter]
+
+{vot_dist, key} = Nx.Random.normal(key, 0, 1.0, shape: {voters_count})
+
+vot_dist =
+  vot_dist
+  |> Nx.abs()
+  |> Nx.vectorize(:voter)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Nx.Tensor<
+  vectorized[voter: 2]
+  f32
+  EMLX.Backend<cpu, 0.3881901917.2543190017.223558>
+  [0.5919870138168335, 0.692608118057251]
+>
+```
+
+```elixir
+d = Nx.revectorize(dists, [voter: :auto], target_shape: {4})
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+#Nx.Tensor<
+  vectorized[voter: 2]
+  f32[4]
+  EMLX.Backend<cpu, 0.3881901917.2543190017.179111>
+  [
+    [0.943080723285675, 0.8635784387588501, 0.4958480894565582, 0.6240983605384827],
+    [0.9802231788635254, 0.6120692491531372, 0.4717492163181305, 0.8993085622787476]
+  ]
+>
+```
+
+```elixir
+Nx.Random.shuffle(key, Nx.iota({10, 5}, axis: 1), independent: true, axis: 1)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{#Nx.Tensor<
+   s32[10][5]
+   EMLX.Backend<cpu, 0.3881901917.2543190017.236845>
+   [
+     [4, 1, 0, 2, 3],
+     [1, 4, 2, 0, 3],
+     [3, 0, 4, 1, 2],
+     [4, 0, 3, 1, 2],
+     [4, 3, 1, 0, 2],
+     [2, 4, 0, 1, 3],
+     [3, 1, 4, 0, 2],
+     [2, 4, 1, 0, 3],
+     [4, 1, 3, 0, 2],
+     [4, 3, 0, 2, ...]
+   ]
+ >,
+ #Nx.Tensor<
+   u32[2]
+   EMLX.Backend<cpu, 0.3881901917.2543190017.236847>
+   [1702733630, 3143582473]
+ >}
+```

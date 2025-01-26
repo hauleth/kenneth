@@ -7,22 +7,23 @@ defmodule Kenneth.Positional.SingleRunoff do
     pass = div(voters, 2)
 
     participants =
-      for {candidate, s} <- DF.to_series(ballots) do
-        result = s |> S.equal(1) |> S.sum()
-
-        {candidate, result}
-      end
-      |> Enum.sort_by(&(-elem(&1, 1)))
-      |> Enum.take(2)
+      ballots
+      |> DF.pivot_longer(DF.names(ballots), names_to: "candidate")
+      |> DF.mutate(value: value == 1)
+      |> DF.group_by("candidate")
+      |> DF.summarise(votes: S.sum(value))
+      |> DF.sort_by(desc: votes)
+      |> DF.head(2)
+      |> DF.to_rows(atom_keys: true)
 
     case participants do
-      [{name, _}] ->
+      [%{candidate: name}] ->
         name
 
-      [{a, result}, _] when result > pass ->
+      [%{candidate: a, votes: result}, _] when result > pass ->
         a
 
-      [{a, _}, {b, _}] ->
+      [%{candidate: a}, %{candidate: b}] ->
         runoff(ballots, a, b, pass)
     end
   end
